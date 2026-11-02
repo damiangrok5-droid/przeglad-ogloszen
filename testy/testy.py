@@ -40,6 +40,15 @@ def skan(t):
         if k=='pesel': m=[x for x in m if pesel_ok(x)]
         if m: h[k]=len(m)
     return h
+sys.path.insert(0,os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','narzedzia'))
+import szczegoly as SZ   # ta sama reguła adresów instytucjonalnych co przy pobieraniu (np. zamowienia@…, dzp@…)
+def skan(t,_skan=skan):
+    h=_skan(t)
+    if 'email' in h:
+        n=sum(1 for x in re.finditer(RX['email'],UUID.sub(' ',t)) if not SZ.email_instytucjonalny(x.group(0)))
+        if n: h['email']=n
+        else: del h['email']
+    return h
 traf={}; npl=0
 for p in sorted(glob.glob(os.path.join(A.dane,'*.json'))+glob.glob(os.path.join(A.strona,'*.html'))):
     npl+=1; h=skan(open(p,encoding='utf-8').read())
@@ -49,6 +58,38 @@ if ST:
     if h: traf['stan:_dowody.okna']=h
 traf.update(dod)
 wynik('skan_danych_osobowych',not traf,plikow=npl,trafienia=traf)
+# 3b. pola szczegółowe z ogłoszeń i opisy wyników/zmian: imiona i nazwiska, tytuły przed nazwiskiem, telefony, imienne e-maile
+def teksty_sz(r):
+    s=r.get('szczegoly') or {}
+    for k,v in (s.get('pola') or {}).items():
+        for w in (v.get('w'),v.get('w0')):
+            if isinstance(w,str): yield k,w
+            elif isinstance(w,list):
+                for c in w:
+                    for kk in ('tytul','opis'):
+                        if c.get(kk): yield k+'.'+kk,c[kk]
+    for h in r.get('historia') or []:
+        if h.get('opis'): yield 'historia.opis',h['opis']
+        for z in h.get('zmiany') or []:
+            for kk in ('miejsce','przed','po'):
+                if z.get(kk): yield 'historia.zmiany',z[kk]
+TELS=re.compile(r'(?<![\d/])(?:\+?48[\s-]?)?(?:\(?\d{2}\)?[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}|\d{3}[\s-]\d{3}[\s-]\d{3})(?![\d/])')
+URL_RX=re.compile(r'(?:https?://|www\.)\S+',re.I)
+MIEJSC_RX=re.compile(r'\b(?:Kazimierz Dolny|Kazimierza Wielka|Kazimierz Biskupi)\b')
+PATRON_RX=re.compile(r'(?:\bul\.|\bal\.|\bpl\.|\bim\.|\bos\.|aleja|ulica|plac|imienia|osiedle|rondo)\s*(?:[\wąćęłńóśźż]+\.\s*)*$',re.I)   # patron ulicy lub placówki, nie osoba kontaktowa
+if ST:
+    t2=collections.Counter(); prz=[]; npol=0
+    for r in ST['rekordy']:
+        for k,t in teksty_sz(r):
+            npol+=1; t=UUID.sub(' ',t)
+            if k=='nip_regon': continue   # numery identyfikacyjne instytucji
+            t=URL_RX.sub(' ',t); t=MIEJSC_RX.sub(' ',t)   # adresy stron (ciągi heksadecymalne) i miejscowości o brzmieniu imienia
+            hh={'imie_nazwisko':len(SZ.imie_nazwisko(t)),'tytul_osoby':sum(1 for m in SZ.TYTUL.finditer(t) if not PATRON_RX.search(t[max(0,m.start()-40):m.start()]) and not (k=='adres' and re.match(r'\s*(?:[A-ZĄĆĘŁŃÓŚŹŻ]\w*\s*)?\d',t[m.end():]))),
+                'telefon':sum(1 for m in TELS.finditer(t) if len(re.sub(r'\D','',m.group(0)))>=9 and not re.search(r'\d{2}-\d{3}\s*$',t[:m.start()][-8:])),
+                'email_imienny':sum(1 for m in re.finditer(RX['email'],t) if not SZ.email_instytucjonalny(m.group(0)))}
+            for kk,v in hh.items():
+                if v: t2[kk]+=v; len(prz)<5 and prz.append([r['id'],k,kk])
+    wynik('skan_osob_w_polach_szczegolowych',not t2,pol=npol,trafienia=dict(t2),przyklady=prz)
 def pliki_repo():
     try: return [f for f in subprocess.run(['git','-C',A.repo,'ls-files','-co','--exclude-standard'],capture_output=True,text=True,check=True).stdout.split('\n') if f]
     except Exception: return None

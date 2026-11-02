@@ -41,6 +41,19 @@ jobs:
           URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/dane/stan.enc"
           if curl -fsSL --retry 3 -o stan/poprzedni.enc "$URL"; then echo "stan z publikacji"; else cp stan/stan_poczatkowy.enc stan/poprzedni.enc; echo "stan początkowy"; fi
           node narzedzia/stan.mjs odszyfruj stan/poprzedni.enc stan/stan.json.gz
+          # stan początkowy z repo wygrywa, jeśli jest nowszy (np. po uzupełnieniu wstecznym wykonanym lokalnie)
+          node narzedzia/stan.mjs odszyfruj stan/stan_poczatkowy.enc stan/poczatkowy.json.gz
+          python3 - <<'PY'
+          import gzip, json, os
+          def t(p):
+              s = json.load(gzip.open(p, 'rt', encoding='utf-8'))
+              return max((s.get('ostatnia_aktualizacja') or {}).values() or [''])
+          a, b = t('stan/stan.json.gz'), t('stan/poczatkowy.json.gz')
+          if b > a:
+              os.replace('stan/poczatkowy.json.gz', 'stan/stan.json.gz'); print('stan początkowy nowszy:', b, '>', a)
+          else:
+              os.remove('stan/poczatkowy.json.gz'); print('stan z publikacji:', a)
+          PY
       - name: Aktualizacja przyrostowa TED i BZP
         env:
           OSTATNIA: ${{ inputs.ostatnia }}
@@ -63,7 +76,7 @@ jobs:
           python3 testy/test_przegladarka.py _site --wynik testy_przegladarka.json
       - name: Usuń jawne dane robocze
         if: always()
-        run: rm -f stan/stan.json.gz stan/poprzedni.enc strona/dane/*.json && rm -f narzedzia/aktualizuj.py narzedzia/dowody.py narzedzia/eksport.py narzedzia/reguly.py narzedzia/slownik.py narzedzia/wspolne.py strona/aplikacja.html testy/testy_danych.py testy/zakazane.json
+        run: rm -f stan/stan.json.gz stan/poczatkowy.json.gz stan/poprzedni.enc strona/dane/*.json && rm -f narzedzia/aktualizuj.py narzedzia/dowody.py narzedzia/eksport.py narzedzia/reguly.py narzedzia/slownik.py narzedzia/wspolne.py strona/aplikacja.html testy/testy_danych.py testy/zakazane.json
       - uses: actions/upload-pages-artifact@v3
         with: { path: _site }
   publikuj:

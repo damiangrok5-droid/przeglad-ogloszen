@@ -72,21 +72,24 @@ def ted_szukaj(z,query,pola=TED_POLA,limit=250):
         if page>40: raise RuntimeError('TED: ponad 10 000 wyników dla jednego zapytania – sprawdź termin')
 # ---------------- BZP ----------------
 BZP_API='https://ezamowienia.gov.pl/mo-board/api/v1/notice'
-BZP_TYPY=["ContractNotice","TenderResultNotice"]
+BZP_TYPY=["ContractNotice","TenderResultNotice","AgreementIntentionNotice"]   # z CpvCode=336
+BZP_TYP_ZMIANA="NoticeUpdateNotice"   # bez CPV w API: pobierane bez filtra CPV i dopasowywane do znanych postępowań
 def bzp_page_size(dzis=None):
     if os.environ.get('BZP_PAGE_SIZE'): return int(os.environ['BZP_PAGE_SIZE'])
     return 100 if (dzis or datetime.date.today())>=datetime.date(2027,1,11) else 500
 def bzp_tekst(h): return re.sub(r'\s+',' ',html.unescape(re.sub(r'<[^>]+>',' ',h or '')))
-def bzp_okres(z,typ,od,do,page_size):
-    """Wszystkie ogłoszenia typu typ z CPV zawierającym 336 opublikowane w [od, do]. Zwraca (lista, luka|None, liczba_stron)."""
+def bzp_okres(z,typ,od,do,page_size,cpv='336',filtr=None):
+    """Wszystkie ogłoszenia typu typ (domyślnie z CPV zawierającym 336; cpv=None = bez filtra CPV) opublikowane w [od, do].
+    filtr(x)->bool: zachowuje tylko pasujące (strumieniowo, bez trzymania całej strony w pamięci). Zwraca (lista, luka|None, liczba_stron)."""
     sa=None; out=[]; widziane=set(); strony=0
     while True:
-        p={'NoticeType':typ,'PublicationDateFrom':f'{od}T00:00:00','PublicationDateTo':f'{do}T23:59:59','CpvCode':'336','PageSize':page_size}
+        p={'NoticeType':typ,'PublicationDateFrom':f'{od}T00:00:00','PublicationDateTo':f'{do}T23:59:59','PageSize':page_size}
+        if cpv: p['CpvCode']=cpv
         if sa: p['SearchAfter']=sa
         d=z.zapytaj(BZP_API+'?'+urllib.parse.urlencode(p)); strony+=1
         if d is None: return out,[typ,str(od),str(do),sa],strony
         nowe=[x for x in d if x.get('objectId') not in widziane]
         for x in nowe: widziane.add(x['objectId'])
-        out+=nowe
+        out+=[x for x in nowe if filtr is None or filtr(x)]
         if not nowe or len(d)<min(page_size,100): return out,None,strony   # niepełna strona = koniec (odporne na limit 100 po stronie serwera)
         sa=d[-1]['objectId']
