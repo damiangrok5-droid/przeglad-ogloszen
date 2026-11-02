@@ -1,0 +1,9 @@
+{
+ "name": "Przegląd ogłoszeń",
+ "short_name": "Przegląd ogłoszeń",
+ "start_url": "./",
+ "display": "standalone",
+ "background_color": "#000000",
+ "theme_color": "#000000",
+ "lang": "pl"
+}

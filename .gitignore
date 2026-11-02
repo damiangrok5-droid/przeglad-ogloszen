@@ -1,0 +1,22 @@
+ref/
+tmp/
+logi/
+_site/
+stan/*.json
+stan/*.json.gz
+stan/poprzedni.enc
+strona/dane/*.json
+testy_wynik.json
+__pycache__/
+*.pyc
+# pliki robocze z zaszyfrowanego pakietu (pakiet/pakiet.enc)
+narzedzia/aktualizuj.py
+narzedzia/dowody.py
+narzedzia/eksport.py
+narzedzia/reguly.py
+narzedzia/slownik.py
+narzedzia/wspolne.py
+strona/aplikacja.html
+testy/testy_danych.py
+testy/zakazane.json
+testy_przegladarka.json
