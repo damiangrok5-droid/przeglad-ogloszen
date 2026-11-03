@@ -20,3 +20,5 @@ strona/aplikacja.html
 testy/testy_danych.py
 testy/zakazane.json
 testy_przegladarka.json
+narzedzia/zalaczniki.py
+testy/test_zalaczniki.py

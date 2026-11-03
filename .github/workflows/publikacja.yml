@@ -54,12 +54,28 @@ jobs:
           else:
               os.remove('stan/poczatkowy.json.gz'); print('stan z publikacji:', a)
           PY
+      - name: Zależności odczytu plików z archiwum
+        run: |
+          pip install --quiet cryptography==46.0.3 openpyxl==3.1.5 python-docx==1.2.0 xlrd==2.0.2 reportlab==4.4.4
+          sudo apt-get install -y -qq poppler-utils antiword >/dev/null
+      - name: Pobierz prywatne archiwum plików (klucz tylko do odczytu)
+        env:
+          ARCHIWUM_KLUCZ: ${{ secrets.ARCHIWUM_KLUCZ }}
+        run: |
+          if [ -z "$ARCHIWUM_KLUCZ" ]; then echo "::notice::brak sekretu ARCHIWUM_KLUCZ – archiwum pominięte"; exit 0; fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$ARCHIWUM_KLUCZ" > ~/.ssh/archiwum && chmod 600 ~/.ssh/archiwum
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/archiwum -o IdentitiesOnly=yes" git clone --quiet --depth 1 git@github.com:${{ github.repository_owner }}/archiwum-plikow.git tmp/archiwum \
+            || echo "::warning::nie udało się pobrać archiwum plików"
+          rm -f ~/.ssh/archiwum
       - name: Aktualizacja przyrostowa TED i BZP
         env:
           OSTATNIA: ${{ inputs.ostatnia }}
         run: |
           ARG=""; if [ -n "$OSTATNIA" ]; then [[ "$OSTATNIA" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "::error::zły format daty"; exit 1; }; ARG="--ostatnia $OSTATNIA"; fi
           set +e
+          [ -d tmp/archiwum/.git ] && ARG="$ARG --zalaczniki tmp/archiwum"
           python3 narzedzia/aktualizuj.py --stan stan/stan.json.gz --strona strona/dane --logi logi $ARG
           rc=$?; set -e
           if [ $rc -eq 3 ]; then echo "::warning::część źródeł nie została pobrana – szczegóły w logu powyżej; okres zostanie pobrany ponownie"; elif [ $rc -ne 0 ]; then exit $rc; fi
@@ -69,6 +85,8 @@ jobs:
           node narzedzia/stan.mjs szyfruj stan/stan.json.gz _site/dane/stan.enc
       - name: Testy (blokują publikację)
         run: python3 testy/testy.py --stan stan/stan.json.gz --dane strona/dane --build _site --strona strona --repo . --wynik testy_wynik.json
+      - name: Test odczytu plików z archiwum (blokuje publikację)
+        run: python3 testy/test_zalaczniki.py --stan stan/stan.json.gz
       - name: Test przeglądarkowy (blokuje publikację)
         run: |
           pip install --quiet playwright==1.64.1
@@ -76,7 +94,7 @@ jobs:
           python3 testy/test_przegladarka.py _site --wynik testy_przegladarka.json
       - name: Usuń jawne dane robocze
         if: always()
-        run: rm -f stan/stan.json.gz stan/poczatkowy.json.gz stan/poprzedni.enc strona/dane/*.json && rm -f narzedzia/aktualizuj.py narzedzia/dowody.py narzedzia/eksport.py narzedzia/reguly.py narzedzia/slownik.py narzedzia/wspolne.py strona/aplikacja.html testy/testy_danych.py testy/zakazane.json
+        run: rm -rf tmp/archiwum && rm -f stan/stan.json.gz stan/poczatkowy.json.gz stan/poprzedni.enc strona/dane/*.json && rm -f narzedzia/aktualizuj.py narzedzia/zalaczniki.py narzedzia/dowody.py narzedzia/eksport.py narzedzia/reguly.py narzedzia/slownik.py narzedzia/wspolne.py strona/aplikacja.html testy/testy_danych.py testy/zakazane.json testy/test_zalaczniki.py
       - uses: actions/upload-pages-artifact@v3
         with: { path: _site }
   publikuj:

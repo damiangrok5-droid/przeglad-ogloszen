@@ -6,7 +6,7 @@ Użycie: python3 narzedzia/pakiet.py zamknij   – pakuje pliki z listy PLIKI do
         python3 narzedzia/pakiet.py sprawdz   – porównuje pakiet z plikami na dysku (kod 1 przy różnicy)"""
 import os, sys, json, gzip, base64, hashlib, subprocess, tempfile
 R=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PLIKI=['narzedzia/aktualizuj.py','narzedzia/dowody.py','narzedzia/eksport.py','narzedzia/reguly.py','narzedzia/slownik.py','narzedzia/wspolne.py',
+PLIKI=['narzedzia/aktualizuj.py','narzedzia/zalaczniki.py','testy/test_zalaczniki.py','narzedzia/dowody.py','narzedzia/eksport.py','narzedzia/reguly.py','narzedzia/slownik.py','narzedzia/wspolne.py',
        'strona/aplikacja.html','testy/testy_danych.py','testy/zakazane.json']
 ENC=os.path.join(R,'pakiet','pakiet.enc')
 def stan(cmd,a,b): subprocess.run(['node',os.path.join(R,'narzedzia','stan.mjs'),cmd,a,b],check=True,stdout=subprocess.DEVNULL)
