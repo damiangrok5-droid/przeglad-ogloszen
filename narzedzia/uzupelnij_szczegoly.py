@@ -6,6 +6,7 @@ import os, sys, json, gzip, datetime, collections, urllib.parse
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
 from zoneinfo import ZoneInfo
 import szczegoly as S
+import reguly as RG
 from zrodla import Zrodlo, Blokada, ted_szukaj, bzp_okres, bzp_page_size, BZP_API
 PL=ZoneInfo('Europe/Warsaw')
 def potrzebne(R,wszystkie=False):
@@ -35,6 +36,7 @@ def uzupelnij(R,log=print,bzp_wiersze=None,bzp_miesiace=False,max_bzp_pojedyncze
             n=N.get(h['numer'])
             if n is None: W['nieznalezione'].append(h['numer']); continue
             r['szczegoly']=S.opakuj(S.z_ted(n),'TED',_ogl(h,'TED'),pobrano); W['ted']+=1
+            r['plik_skladu']=RG.wsk_opakuj(RG.wsk_ted(n),h,pobrano[:10])
         W['zrodla']['TED']=z.podsumowanie()
     if B:
         z=Zrodlo('BZP','ezamowienia.gov.pl',3.0,limit_min=30,log=log); X=dict(bzp_wiersze or {}); ps=ps or bzp_page_size()
@@ -64,8 +66,38 @@ def uzupelnij(R,log=print,bzp_wiersze=None,bzp_miesiace=False,max_bzp_pojedyncze
             x=X.get(oid(h))
             if x is None or not x.get('htmlBody'): W['nieznalezione'].append(h['numer']); continue
             r['szczegoly']=S.opakuj(S.z_bzp(x),'BZP',_ogl(h,'BZP'),pobrano); W['bzp']+=1
+            r['plik_skladu']=RG.wsk_opakuj(RG.wsk_bzp(x),h,pobrano[:10])
         W['zrodla']['BZP']=z.podsumowanie()
     log(f"szczegóły: uzupełniono TED {W['ted']}, BZP {W['bzp']}, nieznalezione {len(W['nieznalezione'])}, błędy {len(W['bledy'])}")
+    return W
+def uzupelnij_wskazowki(R,log=print,max_bzp=25):
+    """Wskazanie „który plik pobrać” dla otwartych postępowań, które jeszcze go nie mają (pozostałe dostają je razem z polami szczegółowymi).
+    TED: zapytania zbiorcze po 100 numerów (tylko pola opisu); BZP: najwyżej max_bzp pojedynczych zapytań na przebieg (limit 30/min)."""
+    W={'ted':0,'bzp':0,'bledy':[]}; dz=datetime.datetime.now(PL).date().isoformat()
+    P=[(r,S.wybierz_ogloszenie(r)) for r in R if r.get('status')=='otwarte' and 'plik_skladu' not in r and r.get('historia')]
+    P=[(r,h) for r,h in P if h and h.get('numer') and h.get('link')]
+    T=[(r,h) for r,h in P if r['zrodlo']=='TED']; B=[(r,h) for r,h in P if r['zrodlo']=='BZP'][:max_bzp]
+    log(f'wskazówki plików: TED {len(T)}, BZP {len(B)}')
+    if T:
+        z=Zrodlo('TED','api.ted.europa.eu',1.5,log=log); N={}; nums=sorted({h['numer'] for _,h in T})
+        try:
+            for i in range(0,len(nums),100):
+                ns,_=ted_szukaj(z,'publication-number IN ('+' '.join(nums[i:i+100])+')',['publication-number']+RG.POLA_WSK_TED,limit=100)
+                for n in ns: N[n['publication-number']]=n
+        except (Blokada,RuntimeError) as e: W['bledy'].append('TED: '+str(e))
+        for r,h in T:
+            if h['numer'] in N: r['plik_skladu']=RG.wsk_opakuj(RG.wsk_ted(N[h['numer']]),h,dz); W['ted']+=1
+    if B:
+        z=Zrodlo('BZP','ezamowienia.gov.pl',3.0,limit_min=30,log=log)
+        try:
+            for r,h in B:
+                d=h.get('data') or ''; oid=h['link'].rsplit('/',1)[-1]
+                if not d: continue
+                p={'NoticeType':h.get('typ') or 'ContractNotice','NoticeNumber':h['numer'],'PublicationDateFrom':f'{d}T00:00:00','PublicationDateTo':f'{d}T23:59:59','PageSize':10}
+                x=next((x for x in z.zapytaj(BZP_API+'?'+urllib.parse.urlencode(p)) or [] if x.get('objectId')==oid),None)
+                if x and x.get('htmlBody'): r['plik_skladu']=RG.wsk_opakuj(RG.wsk_bzp(x),h,dz); W['bzp']+=1
+        except Blokada as e: W['bledy'].append('BZP: '+str(e))
+    log(f"wskazówki plików: uzupełniono TED {W['ted']}, BZP {W['bzp']}, błędy {len(W['bledy'])}")
     return W
 if __name__=='__main__':
     import argparse; ap=argparse.ArgumentParser(); ap.add_argument('--stan',required=True); ap.add_argument('--strona'); ap.add_argument('--wszystkie',action='store_true')

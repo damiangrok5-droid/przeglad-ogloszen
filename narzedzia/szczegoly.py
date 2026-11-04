@@ -22,7 +22,7 @@ ZR_TED={'nip_regon':'eForms BT-501 (organisation-identifier-buyer)','adres':'eFo
 TED_POLA_SZCZ=['publication-number','notice-type','publication-date','organisation-identifier-buyer','organisation-name-buyer','organisation-email-buyer','organisation-internet-address-buyer',
  'organisation-street-buyer','organisation-post-code-buyer','organisation-city-buyer','deadline-receipt-tender-date-lot','deadline-receipt-tender-time-lot','public-opening-date-lot',
  'public-opening-time-lot','document-url-lot','submission-url-lot','internal-identifier-proc','duration-period-value-lot','duration-period-unit-lot','contract-duration-start-date-lot',
- 'contract-duration-end-date-lot','award-criterion-type-lot','award-criterion-name-lot','award-criterion-number-lot','identifier-lot','title-lot','description-lot']
+ 'contract-duration-end-date-lot','award-criterion-type-lot','award-criterion-name-lot','award-criterion-number-lot','identifier-lot','title-lot','description-lot','description-proc','additional-information-lot']
 # ---------- dane osobowe ----------
 INSTYTUCJONALNE=re.compile(r'zam[oó]w|przet[a]rg|^zp|^dzp|[._-]zp|zp[._-]|^dz[a-z]{0,3}$|^sz?zp|^wzp|^zzp|^dzz|^dl$|sekretariat|sekr|kancelari|info|biuro|office|szpit[a]l|zaopatrz|apteka|administr|kontakt|dyrekc|logisty|inwestyc|poczta|centrala|oferty|zakup|tender|procure|purchas|^bzp|ezam|^zam|dzial|^sp|^spzoz|^zoz|^wss|^uck|^usk|^szp|^dyr|^dop|^dzl|^zpu|^zpi|^umowy|^post|^rejestr|^mail|^skrzynka|^ogolny|^general|^contact|^admin|^dfz|^oz|^wz|^dza|^dao|^dl|^cz',re.I)
 def email_instytucjonalny(e):
