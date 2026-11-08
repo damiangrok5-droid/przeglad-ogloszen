@@ -87,6 +87,8 @@ jobs:
         run: python3 testy/testy.py --stan stan/stan.json.gz --dane strona/dane --build _site --strona strona --repo . --wynik testy_wynik.json
       - name: Test odczytu plików z archiwum (blokuje publikację)
         run: python3 testy/test_zalaczniki.py --stan stan/stan.json.gz
+      - name: Test grupowania kart (blokuje publikację)
+        run: python3 testy/test_grupowanie.py --stan stan/stan.json.gz
       - name: Test przeglądarkowy (blokuje publikację)
         run: |
           pip install --quiet playwright==1.64.1
@@ -94,7 +96,7 @@ jobs:
           python3 testy/test_przegladarka.py _site --wynik testy_przegladarka.json
       - name: Usuń jawne dane robocze
         if: always()
-        run: rm -rf tmp/archiwum && rm -f stan/stan.json.gz stan/poczatkowy.json.gz stan/poprzedni.enc strona/dane/*.json && rm -f narzedzia/aktualizuj.py narzedzia/zalaczniki.py narzedzia/dowody.py narzedzia/eksport.py narzedzia/reguly.py narzedzia/slownik.py narzedzia/wspolne.py strona/aplikacja.html testy/testy_danych.py testy/zakazane.json testy/test_zalaczniki.py
+        run: rm -rf tmp/archiwum && rm -f stan/stan.json.gz stan/poczatkowy.json.gz stan/poprzedni.enc strona/dane/*.json && rm -f narzedzia/aktualizuj.py narzedzia/zalaczniki.py narzedzia/dowody.py narzedzia/eksport.py narzedzia/reguly.py narzedzia/slownik.py narzedzia/wspolne.py strona/aplikacja.html testy/testy_danych.py testy/zakazane.json testy/test_zalaczniki.py narzedzia/grupowanie.py testy/test_grupowanie.py
       - uses: actions/upload-pages-artifact@v3
         with: { path: _site }
   publikuj:
