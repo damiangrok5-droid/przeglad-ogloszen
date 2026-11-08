@@ -22,3 +22,5 @@ testy/zakazane.json
 testy_przegladarka.json
 narzedzia/zalaczniki.py
 testy/test_zalaczniki.py
+narzedzia/grupowanie.py
+testy/test_grupowanie.py
