@@ -7,6 +7,10 @@ on:
       ostatnia:
         description: 'Wymuś datę ostatniej aktualizacji (RRRR-MM-DD), puste = z zapisanego stanu'
         required: false
+      stan_poczatkowy:
+        description: 'Użyj stanu początkowego z repo zamiast opublikowanego (np. po zmianie hasła)'
+        type: boolean
+        default: false
   schedule:
     - cron: '0 5 * * 1,4'
 permissions:
@@ -37,9 +41,12 @@ jobs:
           python3 narzedzia/pakiet.py otworz
           python3 narzedzia/pakiet.py sprawdz
       - name: Pobierz poprzedni stan (zaszyfrowany) z opublikowanej strony lub stan początkowy
+        env:
+          STAN_POCZATKOWY: ${{ inputs.stan_poczatkowy }}
         run: |
           URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/dane/stan.enc"
-          if curl -fsSL --retry 3 -o stan/poprzedni.enc "$URL"; then echo "stan z publikacji"; else cp stan/stan_poczatkowy.enc stan/poprzedni.enc; echo "stan początkowy"; fi
+          if [ "$STAN_POCZATKOWY" = "true" ]; then cp stan/stan_poczatkowy.enc stan/poprzedni.enc; echo "::warning::wymuszony stan początkowy z repo (opublikowany stan pominięty)"
+          elif curl -fsSL --retry 3 -o stan/poprzedni.enc "$URL"; then echo "stan z publikacji"; else cp stan/stan_poczatkowy.enc stan/poprzedni.enc; echo "stan początkowy"; fi
           node narzedzia/stan.mjs odszyfruj stan/poprzedni.enc stan/stan.json.gz
           # stan początkowy z repo wygrywa, jeśli jest nowszy (np. po uzupełnieniu wstecznym wykonanym lokalnie)
           node narzedzia/stan.mjs odszyfruj stan/stan_poczatkowy.enc stan/poczatkowy.json.gz
